@@ -1,0 +1,11 @@
+langgraph
+langgraph-prebuilt
+langgraph-sdk
+langgraph-checkpoint-sqlite
+langsmith
+langchain-community
+langchain-core
+langchain-google-genai
+trustcall
+langgraph-cli[inmem]
+pandas
