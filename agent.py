@@ -17,34 +17,6 @@ import random
 load_dotenv()
 
 print("Iniciando o teste...")
-instruction = '''You must parse the user's message and extract a single car entity (model or manufacturer).
-Extraction Logic:
-1. Identify all mentioned car manufacturers and models. The search must be case-insensitive.
-2. Highest Priority: A Model always takes precedence over a Manufacturer.
-3. If a model and its manufacturer are found (e.g., "Honda Civic"), extract only the model.
-4. If only one model is found (e.g., "Civic"), extract the model.
-5. If only one manufacturer is found (e.g., "Honda"), extract the manufacturer.
-'''
-
-# Inspect the tool calls made by Trustcall
-class Spy:
-    def __init__(self):
-        self.called_tools = []
-
-    def __call__(self, run):
-        # Collect information about the tool calls made by the extractor.
-        q = [run]
-        while q:
-            r = q.pop()
-            if r.child_runs:
-                q.extend(r.child_runs)
-            if r.run_type == "chat_model":
-                self.called_tools.append(
-                    r.outputs["generations"][0][0]["message"]["kwargs"]["tool_calls"]
-                )
-
-# Initialize the spy
-spy = Spy()
 
 # Inicializa o modelo
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
@@ -106,7 +78,7 @@ def should_continue(state: AgentState):
     last_message = state["messages"][-1]
     if last_message.tool_calls:
         print("Decisão: Chamar a ferramenta.")
-        return "call_tool" # Vá para o nó da ferramenta
+        return "call_tool" 
     else:
         return END
     
