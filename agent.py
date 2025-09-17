@@ -53,7 +53,7 @@ def process_json(state: AgentState):
     
     json_string = tool_message.content
     car_list = json.loads(json_string)  
-    random_cars = random.sample(car_list, min(3, len(car_list))) 
+    random_cars = random.sample(car_list, max(3, len(car_list))) 
     return {"cars_to_describe": random_cars}
 
 def describe_car(state: AgentState):
@@ -69,7 +69,7 @@ def describe_car(state: AgentState):
         Your task is to write a short, friendly, and salesy "prompt" for each of these cars,
         using the information in the JSON.
         """
-    response = llm.invoke(text_prompt)
+    response = llm.invoke([SystemMessage(content=text_prompt)] + state["messages"])
     return {"messages": [response]}
 
 def should_continue(state: AgentState):
@@ -101,7 +101,7 @@ builder.add_edge("process_json", "describe_car")
 builder.add_edge("describe_car", END)
 
 graph = builder.compile()
-input_messages = [HumanMessage(content="I want to buy a BMW.")]
+input_messages = [HumanMessage(content="ford")]
 config = {"configurable": {"thread_id": "1"}}
 
 for chunk in graph.stream({"messages": input_messages}, config, stream_mode="values"):
