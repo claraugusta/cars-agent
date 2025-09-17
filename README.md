@@ -4,6 +4,7 @@ Este é um projeto de estudo que demonstra a construção de um agente de IA con
 
 O agente é capaz de conversar com um usuário, entender a menção de fabricantes ou modelos de carros, consultar uma base de dados local (um arquivo CSV), selecionar alguns resultados e gerar descrições criativas sobre os veículos encontrados.
 
+Esse projeto está em andamento e pode não funcionar da maneira esperada.
 ## Pré-requisitos
 
 Antes de começar, garanta que você tem o seguinte instalado em sua máquina:
