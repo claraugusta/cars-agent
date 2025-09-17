@@ -19,7 +19,7 @@ load_dotenv()
 print("Iniciando o teste...")
 
 # Inicializa o modelo
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
 
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages] 
@@ -33,75 +33,76 @@ class Car_name(BaseModel):
 
 @tool(args_schema=Car_name)
 def car_search_tool(Manufacturer: Optional[str] = None, Model: Optional[str] = None):
-    """Search the vehicle database by manufacturer and/or model.
+    """If the user mentioned a car, search the vehicle database by manufacturer and/or model.
     Use this tool whenever a user asks for vehicle information.
     """
     json_result = select_cars('Manufacturer', Manufacturer, 'Model', Model)
-    return json_result
+    list_of_cars = json.loads(json_result)
+    random_cars = random.sample(list_of_cars, min(3, len(list_of_cars))) 
+    return {"cars_to_describe": random_cars}
 
 tools = [car_search_tool]
 tool_node = ToolNode(tools)
 llm_with_tools = llm.bind_tools(tools, tool_choice="car_search_tool" )
 
-def agent(state: AgentState):
+def assistant(state: AgentState):
     response = llm_with_tools.invoke(state["messages"])
     return{"messages": [response]}
 
-def process_json(state: AgentState):
-    """Gets the JSON from the ToolMessage, picks 3 cars and updates the state."""
-    tool_message = state["messages"][-1]
-    
-    json_string = tool_message.content
-    car_list = json.loads(json_string)  
-    random_cars = random.sample(car_list, max(3, len(car_list))) 
-    return {"cars_to_describe": random_cars}
 
 def describe_car(state: AgentState):
-    """Describe the 3 random cars based on the json informations"""
-    cars_to_describe = state["cars_to_describe"]
-    if not cars_to_describe:
-        text_prompt = "The user requested information, but the search returned no results. Please advise them."
-    else:
-        text_prompt = f"""
-        The user requested information about cars. The search returned the following vehicles:
-        {cars_to_describe}
+    """Describe the cars based on the json informations"""
+    cars_to_describe = state.get('cars_to_describe')
+    print(cars_to_describe)
+    text_prompt = f"""The user requested information about cars. The search returned the following vehicles:
+    {cars_to_describe}
 
-        Your task is to write a short, friendly, and salesy "prompt" for each of these cars,
-        using the information in the JSON.
-        """
+    Your task is to write a short, friendly, and salesy "prompt" for each of these cars,
+    using the information in the JSON.
+    """
+    response = llm.invoke([SystemMessage(content=text_prompt)] + state["messages"])
+    return {"messages": [response]}
+
+def cannot_assist_node(state: AgentState):
+    """Generates a polite response when no tool is called."""
+    print("--- Node: Cannot Assist ---")
+    text_prompt = "You are a car sales assistant. The user asked a question that is not related to searching for vehicle information. Politely inform them that you can only help with questions about cars and ask if they would like to search by model or manufacturer."
     response = llm.invoke([SystemMessage(content=text_prompt)] + state["messages"])
     return {"messages": [response]}
 
 def should_continue(state: AgentState):
-    """Decide para onde ir depois do nó 'agent'."""
-    print("--- Nó: Condicional (Roteador) ---")
+    """Decide where to go after the 'assistant' node."""
+    print("--- Node: Conditional (Router) ---")
     last_message = state["messages"][-1]
     if last_message.tool_calls:
-        print("Decisão: Chamar a ferramenta.")
-        return "call_tool" 
+        print("Decision: Call the tool.")
+        return "call_tool"
     else:
-        return END
-    
+        print("Decision: No tool called, respond politely.")
+        return "cannot_assist"
 
 builder = StateGraph(MessagesState)
-builder.add_node("agent", agent)
-builder.add_node("describe_car",describe_car)
-builder.add_node("action", tool_node)
-builder.add_node("process_json",process_json)
-builder.add_edge(START, "agent")
-builder.add_conditional_edges(
-    "agent",
-    should_continue,
-    {
-        "call_tool": "action",
-        END: END
-    })
-builder.add_edge("action", "process_json")
-builder.add_edge("process_json", "describe_car")
-builder.add_edge("describe_car", END)
 
+builder.add_node("assistant", assistant)
+builder.add_node("car_search_tool", tool_node)
+builder.add_node("describe_car", describe_car)
+builder.add_node("cannot_assist_node", cannot_assist_node)
+
+builder.add_edge(START, "assistant")
+
+builder.add_conditional_edges(
+"assistant",
+should_continue,
+    {"call_tool": "car_search_tool",
+    "cannot_assist": "cannot_assist_node",
+}
+)
+builder.add_edge("car_search_tool", "describe_car")
+builder.add_edge("describe_car", END)
+builder.add_edge("cannot_assist_node", END)
 graph = builder.compile()
-input_messages = [HumanMessage(content="ford")]
+
+input_messages = [HumanMessage(content="hii")]
 config = {"configurable": {"thread_id": "1"}}
 
 for chunk in graph.stream({"messages": input_messages}, config, stream_mode="values"):
