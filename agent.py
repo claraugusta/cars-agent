@@ -1,15 +1,13 @@
 from dotenv import load_dotenv
 
-# Importa o modelo de chat da OpenAI e uma mensagem
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 from langgraph.graph import StateGraph, MessagesState, END, START
-from trustcall import create_extractor
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
-from typing import Literal, Optional, TypedDict, Annotated
+from typing import Optional, TypedDict, Annotated
 from select_cars import select_cars
 import json
 import random
@@ -18,7 +16,6 @@ load_dotenv()
 
 print("Iniciando o teste...")
 
-# Inicializa o modelo
 llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
 
 class AgentState(TypedDict):
