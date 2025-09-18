@@ -43,7 +43,7 @@ def car_search_tool(Manufacturer: Optional[str] = None, Model: Optional[str] = N
 
 tools = [car_search_tool]
 tool_node = ToolNode(tools)
-llm_with_tools = llm.bind_tools(tools, tool_choice="car_search_tool" )
+llm_with_tools = llm.bind_tools(tools)
 
 def assistant(state: AgentState):
     response = llm_with_tools.invoke(state["messages"])
