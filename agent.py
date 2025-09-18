@@ -43,8 +43,9 @@ tool_node = ToolNode(tools)
 llm_with_tools = llm.bind_tools(tools)
 
 def assistant(state: AgentState):
-    response = llm_with_tools.invoke(state["messages"])
-    return{"messages": [response]}
+    text_prompt = "You are a car sales assistant. If the user asks a question that is not related to searching for vehicle information, politely inform them that you can only help with questions about cars and ask if they would like to search by model or manufacturer."
+    response = llm_with_tools.invoke([SystemMessage(content=text_prompt)] + state["messages"])
+    return {"messages": [response]}
 
 
 def describe_car(state: AgentState):
@@ -60,13 +61,6 @@ def describe_car(state: AgentState):
     response = llm.invoke([SystemMessage(content=text_prompt)] + state["messages"])
     return {"messages": [response]}
 
-def cannot_assist_node(state: AgentState):
-    """Generates a polite response when no tool is called."""
-    print("--- Node: Cannot Assist ---")
-    text_prompt = "You are a car sales assistant. The user asked a question that is not related to searching for vehicle information. Politely inform them that you can only help with questions about cars and ask if they would like to search by model or manufacturer."
-    response = llm.invoke([SystemMessage(content=text_prompt)] + state["messages"])
-    return {"messages": [response]}
-
 def should_continue(state: AgentState):
     """Decide where to go after the 'assistant' node."""
     print("--- Node: Conditional (Router) ---")
@@ -76,14 +70,13 @@ def should_continue(state: AgentState):
         return "call_tool"
     else:
         print("Decision: No tool called, respond politely.")
-        return "cannot_assist"
+        return END
 
 builder = StateGraph(MessagesState)
 
 builder.add_node("assistant", assistant)
 builder.add_node("car_search_tool", tool_node)
 builder.add_node("describe_car", describe_car)
-builder.add_node("cannot_assist_node", cannot_assist_node)
 
 builder.add_edge(START, "assistant")
 
@@ -91,12 +84,11 @@ builder.add_conditional_edges(
 "assistant",
 should_continue,
     {"call_tool": "car_search_tool",
-    "cannot_assist": "cannot_assist_node",
+    END:END,
 }
 )
 builder.add_edge("car_search_tool", "describe_car")
 builder.add_edge("describe_car", END)
-builder.add_edge("cannot_assist_node", END)
 graph = builder.compile()
 
 input_messages = [HumanMessage(content="hii")]
