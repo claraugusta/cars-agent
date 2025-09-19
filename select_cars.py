@@ -1,6 +1,6 @@
 import pandas as pd
 
-cars_sales = pd.read_csv("data/car_sales_data.csv")
+cars_sales = pd.read_csv("data/car_prices.csv")
 
 def select_cars_simple(type, name):
     if name == None or name == '':    return "[]"
