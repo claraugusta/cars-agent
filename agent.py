@@ -94,8 +94,3 @@ builder.add_edge("car_search_tool", "describe_car")
 builder.add_edge("describe_car", END)
 graph = builder.compile()
 
-input_messages = [HumanMessage(content="I want to buy a Civic")]
-config = {"configurable": {"thread_id": "1"}}
-
-for chunk in graph.stream({"messages": input_messages}, config, stream_mode="values"):
-    chunk["messages"][-1].pretty_print()
