@@ -1,5 +1,4 @@
 from dotenv import load_dotenv
-
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph.message import add_messages
@@ -11,12 +10,35 @@ from typing import Optional, TypedDict, Annotated
 from select_cars import select_cars
 import json
 import random
+from rag_query import *
 
 load_dotenv()
 
 print("Iniciando o teste...")
 
 llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
+
+def montar_contexto(resultados):
+    ctx_linhas = []
+    for r in resultados:
+        cite = f"[{r['rank']}] ({r['fonte']} #{r['idx_local']})"
+        ctx_linhas.append(f"{cite}\n{r['texto']}")
+    return "\n\n".join(ctx_linhas)
+
+def montar_prompt(resultados):
+    context = montar_contexto(resultados)
+    prompt = f"""
+                You are a used car sales assistant who responds based ONLY on the CONTEXT provided.
+                If the answer is not in context, say "I couldn't find the information in the documents."
+
+                CONTEXT (excerpts retrieved):
+                {context}
+
+                Instructions:
+                - Answer in a salesy but short way.
+                - If there is conflicting data, point out the discrepancy.
+                """
+    return prompt.strip()
 
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages] 
@@ -28,26 +50,11 @@ class Car_name(BaseModel):
     Make: Optional[str] = Field(description="A car's manufacturer")
     Model: Optional[str] = Field(description="A car's model")
 
-@tool(args_schema=Car_name)
-def car_search_tool(Make: Optional[str] = None, Model: Optional[str] = None):
-    """If the user mentioned a car, search the vehicle database by manufacturer and/or model.
-    Use this tool whenever a user asks for vehicle information.
-    """
-    json_result = select_cars('make', Make, 'model', Model)
-    list_of_cars = json.loads(json_result)
-    random_cars = random.sample(list_of_cars, min(3, len(list_of_cars))) 
-    return {"cars_to_describe": random_cars}
-
-tools = [car_search_tool]
-tool_node = ToolNode(tools)
-llm_with_tools = llm.bind_tools(tools)
-
 def assistant(state: AgentState):
-    text_prompt = '''You are a used car sales assistant. If the user asks a question that is not related to searching for 
-    vehicle information, politely inform them that you can only help with questions about cars and ask if they would 
-    like to search by model or manufacturer.'''
-
-    response = llm_with_tools.invoke([SystemMessage(content=text_prompt)] + state["messages"])
+    last_message_content = state["messages"][-1].content
+    hits = recuperar(last_message_content, k=5)
+    text_prompt = montar_prompt(hits)
+    response = llm.invoke([SystemMessage(content=text_prompt)] + state["messages"])
     return {"messages": [response]}
 
 
@@ -78,19 +85,23 @@ def should_continue(state: AgentState):
 builder = StateGraph(MessagesState)
 
 builder.add_node("assistant", assistant)
-builder.add_node("car_search_tool", tool_node)
 builder.add_node("describe_car", describe_car)
 
 builder.add_edge(START, "assistant")
-
-builder.add_conditional_edges(
-"assistant",
-should_continue,
-    {"call_tool": "car_search_tool",
-    END:END,
-}
-)
-builder.add_edge("car_search_tool", "describe_car")
-builder.add_edge("describe_car", END)
+builder.add_edge("assistant", END)
 graph = builder.compile()
 
+
+user_query = "Existe algum carro Hyundai Santa fe vendido?"
+messages_input = [HumanMessage(content=user_query)]
+
+# 2. Invoque o grafo com a entrada no formato correto
+# O formato é um dicionário onde a chave corresponde ao estado do grafo ("messages")
+final_state = graph.invoke({"messages": messages_input})
+
+# 3. Imprima a resposta final do assistente
+# A resposta é a última mensagem na lista de mensagens do estado final
+assistant_response = final_state["messages"][-1]
+
+print("\n--- Resposta do Assistente ---")
+print(assistant_response.content)

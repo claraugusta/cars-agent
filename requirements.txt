@@ -9,3 +9,7 @@ langchain-google-genai
 trustcall
 langgraph-cli[inmem]
 pandas
+sentence-transformers 
+faiss-cpu 
+numpy 
+tiktoken
