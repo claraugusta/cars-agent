@@ -60,7 +60,7 @@ builder.add_edge(START, "assistant")
 builder.add_edge("assistant", END)
 graph = builder.compile()
 
-user_query = "quero um chevrolet camaro barato, qual voce me recomenda?"
+user_query = "Os carros volvos foram vendidos por preço justo?"
 messages_input = [HumanMessage(content=user_query)]
 
 final_state = graph.invoke({"messages": messages_input})
